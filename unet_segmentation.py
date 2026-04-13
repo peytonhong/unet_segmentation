@@ -11,6 +11,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import argparse
 from glob import glob
+import platform
 
 def main(args):
     transform = transforms.Compose([
@@ -19,15 +20,17 @@ def main(args):
         # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
+    train_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'train'), transforms=transform)    # shape: [1, height, width]
+    test_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'test'), transforms=transform)
 
-    train_dataset = UnetDataset(dataset_dir=os.path.join('sample_dataset', 'train'), transforms=transform)    # shape: [1, height, width]
-    test_dataset = UnetDataset(dataset_dir=os.path.join('sample_dataset', 'test'), transforms=transform)
-
-    batch_size = 4
+    batch_size = args.batch_size
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)  # shape: [N, 1, height, width]
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if platform.system() == "Darwin":   # for macOS
+        device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    else:   # Windows or Linux
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = UNet(n_channels=1, n_classes=1).to(device)
 
@@ -38,7 +41,7 @@ def main(args):
 
     best_test_loss = np.inf
 
-    num_epochs = 1000
+    num_epochs = args.num_epochs
 
     train_loss_list = []
     test_loss_list = []
