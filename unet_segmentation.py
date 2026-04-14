@@ -22,8 +22,8 @@ def main(args):
 
     n_classes = 2
 
-    train_dataset = UnetDataset(dataset_dir=os.path.join("sample_dataset", 'train'), n_classes=n_classes, transforms=transform)    # image shape: [1, height, width], mask shape: [n_classes, height, width]
-    test_dataset = UnetDataset(dataset_dir=os.path.join("sample_dataset", 'test'), n_classes=n_classes, transforms=transform)
+    train_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'train'), n_classes=n_classes, transforms=transform)    # image shape: [1, height, width], mask shape: [n_classes, height, width]
+    test_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'test'), n_classes=n_classes, transforms=transform)
 
     batch_size = args.batch_size
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)  # image shape: [N, 1, height, width], mask shape: [N, n_classes, height, width]
