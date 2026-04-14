@@ -35,11 +35,9 @@ class UnetDataset(Dataset):
         height, width = image.shape
         mask = np.zeros((height, width, self.n_classes), dtype=np.uint8) # [540, 720, 2]
         if label=='tab':    
-            mask_c = np.array(mask[:,:,0])
-            mask[:,:,0] = cv2.fillPoly(mask_c, [points], color=255)
+            mask[:,:,0] = cv2.fillPoly(mask[:,:,0].copy(), [points], color=255)
         elif label=='bead':
-            mask_c = np.array(mask[:,:,1])
-            mask[:,:,1] = cv2.fillPoly(mask_c, [points], color=255)
+            mask[:,:,1] = cv2.fillPoly(mask[:,:,1].copy(), [points], color=255)
         else:
             print('No valid label detected.')
             exit()
