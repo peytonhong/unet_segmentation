@@ -20,11 +20,13 @@ def main(args):
         # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    train_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'train'), transforms=transform)    # shape: [1, height, width]
-    test_dataset = UnetDataset(dataset_dir=os.path.join("annotations", 'test'), transforms=transform)
+    n_classes = 2
+
+    train_dataset = UnetDataset(dataset_dir=os.path.join("sample_dataset", 'train'), n_classes=n_classes, transforms=transform)    # image shape: [1, height, width], mask shape: [n_classes, height, width]
+    test_dataset = UnetDataset(dataset_dir=os.path.join("sample_dataset", 'test'), n_classes=n_classes, transforms=transform)
 
     batch_size = args.batch_size
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)  # shape: [N, 1, height, width]
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)  # image shape: [N, 1, height, width], mask shape: [N, n_classes, height, width]
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
     if platform.system() == "Darwin":   # for macOS
@@ -32,7 +34,7 @@ def main(args):
     else:   # Windows or Linux
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = UNet(n_channels=1, n_classes=1).to(device)
+    model = UNet(n_channels=1, n_classes=n_classes).to(device)
 
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.BCEWithLogitsLoss(reduction='mean')
@@ -103,19 +105,35 @@ def main(args):
         image_paths = glob(os.path.join('sample_dataset', 'test', '*.bmp'))
         idx = 0
 
-        image_path = image_paths[idx]
-        print(image_path)
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        sigmoid = nn.Sigmoid()
-        with torch.no_grad():
-            output = model(transform(image).unsqueeze(0).to(device))
-            output = sigmoid(output)
-        mask_pred = (output[0][0].to('cpu').numpy()*255).astype(np.uint8)
-        h, w = image.shape
-        mask_pred = cv2.resize(mask_pred, (w, h))
-        image_mask = np.hstack((image, mask_pred))
-        cv2.imshow('mask_pred', image_mask)
-        key = cv2.waitKey()
+        while True:
+            image_path = image_paths[idx]
+            print(image_path)
+            image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            sigmoid = nn.Sigmoid()
+            with torch.no_grad():
+                output = model(transform(image).unsqueeze(0).to(device))
+                output = sigmoid(output)
+            mask_pred = (output[0].to('cpu').numpy()*255).astype(np.uint8)  # (n_classes, height, width)
+            h, w = image.shape
+            # mask_pred = cv2.resize(mask_pred, (w, h))
+            color_mask = np.zeros((h,w,3), dtype=np.uint8)  # 8bit unsigned int : 0~255 정수 표현
+            color_mask[:,:,1] = cv2.resize(mask_pred[0], (w, h))    # tab on green color
+            color_mask[:,:,2] = cv2.resize(mask_pred[1], (w, h))    # bead on red color
+            color_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            mask_on_image = cv2.addWeighted(color_image, 0.5, color_mask, 0.5, 0)
+            # image_mask = np.hstack((image, mask_pred))
+            cv2.imshow('mask_on_image', mask_on_image)
+            key = cv2.waitKey()
+            if key==ord('q'):
+                break
+            elif key==ord('a'):
+                idx -= 1
+            elif key==ord('d'):
+                idx += 1
+            if idx < 0:
+                idx = 0
+            if idx > len(image_paths)-1:
+                idx = len(image_paths)
 
 
 

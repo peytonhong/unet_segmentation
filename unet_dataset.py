@@ -9,9 +9,10 @@ from pathlib import Path
 import json
 
 class UnetDataset(Dataset):
-    def __init__(self, dataset_dir, transforms=None):
+    def __init__(self, dataset_dir, n_classes, transforms=None):
         self.image_paths = glob(os.path.join(dataset_dir, "*.bmp"))
         self.transforms = transforms
+        self.n_classes = n_classes
     
     def __len__(self):
         return len(self.image_paths)
@@ -23,26 +24,36 @@ class UnetDataset(Dataset):
 
         if self.transforms:
             image = self.transforms(image) # [540, 720] --> [1, 540, 720]
-            mask = self.transforms(mask)
+            mask = self.transforms(mask)   # [540, 720, 2] --> [2, 540, 720]
         return image, mask
 
     def get_mask(self, image_path, image):
         json_path = image_path.replace(".bmp", ".json")
-        points = self.get_points(json_path)
+        points, label = self.get_points_with_label(json_path)
 
-        mask = np.zeros_like(image)
-        mask = cv2.fillPoly(mask, [points], color=255)
-
+        # mask = np.zeros_like(image) # [540, 720]
+        height, width = image.shape
+        mask = np.zeros((height, width, self.n_classes), dtype=np.uint8) # [540, 720, 2]
+        if label=='tab':    
+            mask_c = np.array(mask[:,:,0])
+            mask[:,:,0] = cv2.fillPoly(mask_c, [points], color=255)
+        elif label=='bead':
+            mask_c = np.array(mask[:,:,1])
+            mask[:,:,1] = cv2.fillPoly(mask_c, [points], color=255)
+        else:
+            print('No valid label detected.')
+            exit()
         return mask
 
-    def get_points(self, json_path):
+    def get_points_with_label(self, json_path):
         with open(json_path, 'r') as jsonfile:
             data = json.load(jsonfile)
         shapes = data['shapes']
         for shape in shapes:
             points = shape['points']
             points = np.array(points).round().astype(int)
-        return points
+            label = shape['label']
+        return points, label
         
 
 # dataset = UnetDataset(dataset_dir=os.path.join('sample_dataset', 'test'))
